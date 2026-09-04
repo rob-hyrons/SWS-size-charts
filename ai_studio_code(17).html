@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roller Shutter Configurator</title>
+    <!-- Include SheetJS Library for reading Excel (.xlsx) files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #0284c7;
+            --primary-blue-hover: #0369a1;
+            --light-blue-bg: #f0f9ff;
+            --border-color: #cbd5e1;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 1050px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .product-title-group h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 0 0 5px 0;
+        }
+
+        .product-title-group h1 {
+            font-size: 1.15rem;
+            color: var(--primary-blue);
+            margin: 0;
+        }
+
+        .section-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-size-chart {
+            background: var(--light-blue-bg);
+            border: 1px solid #7dd3fc;
+            color: #0369a1;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-size-chart:hover { background: #e0f2fe; }
+
+        .btn-reset-filters {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-reset-filters:hover { background: #e2e8f0; color: var(--text-main); }
+
+        /* Form Layout: Filters first row, Dimensions second row */
+        .config-grid-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 25px;
+        }
+
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .dimensions-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 768px) {
+            .filters-row, .dimensions-row { grid-template-columns: 1fr; }
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .input-with-unit {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .input-with-unit input, .input-with-unit select {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px 0 0 4px;
+            font-size: 0.9rem;
+            background: #fff;
+        }
+
+        .input-with-unit .unit-tag, .input-with-unit select {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            border-left: none;
+            padding: 8px 10px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-radius: 0 4px 4px 0;
+            box-sizing: border-box;
+        }
+
+        .input-with-unit select {
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        .helper-text {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .config-status-card {
+            padding: 15px;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-text-area div:first-child { font-weight: 600; font-size: 0.9rem; }
+        .status-msg { font-size: 0.85rem; margin-top: 2px; }
+        .price-tag { font-size: 1.4rem; font-weight: bold; color: #047857; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-card {
+            background: #ffffff;
+            width: 95vw;
+            max-width: 1400px;
+            max-height: 90vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; color: var(--primary-blue); }
+        .modal-close { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); }
+
+        .modal-body {
+            padding: 15px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .grid-container {
+            width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #fff;
+        }
+        
+        table.matrix-visual {
+            border-collapse: collapse;
+            font-size: 9px;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        table.matrix-visual th, table.matrix-visual td {
+            border: 1px solid #e2e8f0;
+            padding: 4px 1px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table.matrix-visual th {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            font-weight: 600;
+        }
+
+        table.matrix-visual th.row-header {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: #f1f5f9;
+            width: 55px;
+        }
+
+        .cell-available { background-color: #ecfdf5; color: #047857; cursor: pointer; }
+        .cell-available:hover { background-color: #a7f3d0; font-weight: bold; }
+        .cell-unavailable { background-color: #fee2e2; color: #991b1b; }
+        .cell-target {
+            outline: 2px solid var(--primary-blue) !important;
+            outline-offset: -2px;
+            font-weight: bold;
+            background-color: #bfdbfe !important;
+            color: #1e3a8a !important;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            font-size: 0.8rem;
+            margin-top: 15px;
+            align-items: center;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-color { width: 14px; height: 14px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- Product Header Bar -->
+    <div class="product-header">
+        <div class="product-title-group">
+            <h2>Product Specification</h2>
+            <h1 id="selectedProductTitle">Loading spreadsheet from GitHub...</h1>
+        </div>
+    </div>
+
+    <div class="section-header-flex">
+        <h3 class="section-title">Filters & Dimensions</h3>
+        <div class="header-actions">
+            <button class="btn-reset-filters" onclick="resetFilters()">🔄 Reset Filters</button>
+            <button class="btn-size-chart" onclick="openSizeChart()">📊 View Size Chart</button>
+        </div>
+    </div>
+
+    <!-- Structured Form Layout -->
+    <div class="config-grid-section">
+        <!-- Row 1: Filters (Application, Drive Rating, Product) -->
+        <div class="filters-row">
+            <div class="input-group">
+                <label for="appSelect">Application (Col D)</label>
+                <select id="appSelect" onchange="onFilterChange()">
+                    <option value="">-- Loading --</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="driveTypeSelect">Drive Rating (Col E)</label>
+                <select id="driveTypeSelect" onchange="onFilterChange()">
+                    <option value="">-- Loading --</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="productSelect">Product (Col C)</label>
+                <select id="productSelect" onchange="onFilterChange()">
+                    <option value="">-- Loading --</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Row 2: Width and Height Inputs placed underneath -->
+        <div class="dimensions-row">
+            <div class="input-group">
+                <label for="widthInput">Width (mm)</label>
+                <div class="input-with-unit">
+                    <input type="number" id="widthInput" step="100" value="1000" disabled>
+                    <span class="unit-tag">mm</span>
+                </div>
+                <div class="helper-text">Matrix width columns</div>
+            </div>
+
+            <div class="input-group">
+                <label for="heightInput">Height (mm)</label>
+                <div class="input-with-unit">
+                    <input type="number" id="heightInput" step="200" value="1000" disabled>
+                    <span class="unit-tag">mm</span>
+                </div>
+                <div class="helper-text">Column F increments</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status & Pricing Feedback -->
+    <div class="config-status-card" id="statusCard">
+        <div class="status-text-area">
+            <div id="statusTitle">Connecting...</div>
+            <div class="status-msg" id="statusMsg">Fetching remote spreadsheet data from GitHub repository.</div>
+        </div>
+        <div class="price-tag" id="priceDisplay">£0.00</div>
+    </div>
+</div>
+
+<!-- Modal Popup for Size Chart -->
+<div class="modal-overlay" id="sizeChartModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="modalTitle">Interactive Size Chart</h3>
+            <button class="modal-close" onclick="closeSizeChart()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0; margin-bottom: 12px;">
+                Leading unavailable width columns are automatically hidden. Green cells are active (> 50). Red cells indicate values ≤ 50 or missing data. Click any green cell to load dimensions.
+            </p>
+            <div class="grid-container" id="gridContainer">
+                <div style="padding: 20px; text-align:center; color: var(--text-muted);">Loading chart...</div>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background:#ecfdf5; border:1px solid #10b981;"></div> Available Size (> 50)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#fee2e2; border:1px solid #ef4444;"></div> Unavailable / Empty</div>
+                <div class="legend-item"><div class="legend-color" style="background:#bfdbfe; border:1px solid #2563eb;"></div> Your Selection</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let globalMatrixData = {
+        widths: [],
+        rows: [],
+        productNamesMap: {} 
+    };
+
+    const appSelect = document.getElementById('appSelect');
+    const driveTypeSelect = document.getElementById('driveTypeSelect');
+    const productSelect = document.getElementById('productSelect');
+    const widthInput = document.getElementById('widthInput');
+    const heightInput = document.getElementById('heightInput');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMsg = document.getElementById('statusMsg');
+    const statusCard = document.getElementById('statusCard');
+    const priceDisplay = document.getElementById('priceDisplay');
+    const gridContainer = document.getElementById('gridContainer');
+    const selectedProductTitle = document.getElementById('selectedProductTitle');
+
+    // Automatically Fetch Excel Spreadsheet from GitHub Repository URL
+    async function loadSpreadsheetFromGitHub() {
+        // IMPORTANT: Replace with your raw GitHub repository path link to your .xlsx file
+        const githubExcelUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/prices.xlsx";
+
+        try {
+            const response = await fetch(githubExcelUrl);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            processWorkbook(workbook);
+        } catch (error) {
+            console.error("Failed to load Excel file from GitHub:", error);
+            statusTitle.innerText = "Connection Error";
+            statusMsg.innerText = "Could not load spreadsheet file from GitHub path. Check console for details.";
+            selectedProductTitle.innerText = "Failed to load remote spreadsheet";
+        }
+    }
+
+    function processWorkbook(workbook) {
+        let priceSheetName = workbook.SheetNames.find(name => name.trim().toLowerCase() === 'price list');
+        if (!priceSheetName) priceSheetName = workbook.SheetNames[0];
+
+        let nameSheetName = workbook.SheetNames.find(name => name.trim().toLowerCase() !== priceSheetName.trim().toLowerCase());
+        
+        globalMatrixData.productNamesMap = {};
+        if (nameSheetName) {
+            const nameSheet = workbook.Sheets[nameSheetName];
+            const nameJson = XLSX.utils.sheet_to_json(nameSheet, { header: 1 });
+            
+            let codeColIdx = 4; // Default Column E
+            let nameColIdx = 6; // Column G
+
+            if (nameJson.length > 0) {
+                const headers = nameJson[0].map(h => h ? String(h).trim().toLowerCase() : '');
+                codeColIdx = headers.indexOf('code');
+                if (codeColIdx === -1) codeColIdx = 4;
+
+                let foundNameHeaderIdx = headers.indexOf('name');
+                if (foundNameHeaderIdx !== -1) nameColIdx = foundNameHeaderIdx;
+
+                for (let r = 1; r < nameJson.length; r++) {
+                    let row = nameJson[r];
+                    if (row && row[codeColIdx]) {
+                        let code = String(row[codeColIdx]).trim();
+                        let desc = row[nameColIdx] ? String(row[nameColIdx]).trim() : '';
+                        if (desc && desc !== code) {
+                            globalMatrixData.productNamesMap[code] = desc;
+                        }
+                    }
+                }
+            }
+        }
+
+        const priceSheet = workbook.Sheets[priceSheetName];
+        const priceJson = XLSX.utils.sheet_to_json(priceSheet, { header: 1 });
+
+        if (priceJson.length < 2) {
+            alert("The 'price list' sheet appears empty.");
+            return;
+        }
+
+        const headerCols = priceJson[0];
+        globalMatrixData.widths = [];
+        const maxColLimit = Math.min(headerCols.length, 67); 
+        for (let i = 6; i < maxColLimit; i++) {
+            let val = parseInt(String(headerCols[i]).replace(/^w/i, ''));
+            if (!isNaN(val)) {
+                globalMatrixData.widths.push(val);
+            }
+        }
+
+        globalMatrixData.rows = [];
+        for (let r = 1; r < priceJson.length; r++) {
+            const cols = priceJson[r];
+            if (!cols || cols.length === 0) continue;
+
+            const product = cols[2] ? String(cols[2]).trim() : '';     // Column C
+            const app = cols[3] ? String(cols[3]).trim() : '';         // Column D
+            const driveType = cols[4] ? String(cols[4]).trim() : '';   // Column E
+            const height = cols[5] ? parseInt(cols[5]) : NaN;          // Column F
+
+            if (!product || isNaN(height)) continue;
+
+            let prices = [];
+            for (let wIdx = 0; wIdx < globalMatrixData.widths.length; wIdx++) {
+                const colIndex = 6 + wIdx;
+                let rawVal = cols[colIndex] !== undefined ? String(cols[colIndex]).trim() : '';
+                let numVal = parseFloat(rawVal);
+                
+                if (isNaN(numVal) || numVal <= 50) {
+                    prices.push(null);
+                } else {
+                    prices.push(numVal);
+                }
+            }
+
+            globalMatrixData.rows.push({
+                product: product,
+                application: app,
+                driveType: driveType,
+                height: height,
+                prices: prices
+            });
+        }
+
+        updateDropdowns();
+
+        widthInput.disabled = false;
+        heightInput.disabled = false;
+
+        if (globalMatrixData.widths.length > 0) widthInput.value = globalMatrixData.widths[0];
+        
+        selectedProductTitle.innerText = "Spreadsheet Loaded Successfully from GitHub";
+        evaluateConfiguration();
+    }
+
+    function updateDropdowns(preserveSelections = true) {
+        const curApp = appSelect.value;
+        const curDrive = driveTypeSelect.value;
+        const curProd = productSelect.value;
+
+        let allApps = [...new Set(globalMatrixData.rows.map(r => r.application))].filter(Boolean);
+        let allDrives = [...new Set(globalMatrixData.rows.map(r => r.driveType))].filter(Boolean);
+
+        fillSelect(appSelect, allApps, curApp, preserveSelections);
+        fillSelect(driveTypeSelect, allDrives, curDrive, preserveSelections);
+
+        let filteredRows = globalMatrixData.rows.filter(r => {
+            if (appSelect.value && r.application !== appSelect.value) return false;
+            if (driveTypeSelect.value && r.driveType !== driveTypeSelect.value) return false;
+            return true;
+        });
+
+        let availableProducts = [...new Set(filteredRows.map(r => r.product))].filter(Boolean);
+        fillProductSelect(productSelect, availableProducts, curProd, preserveSelections);
+    }
+
+    function fillSelect(selectEl, items, currentVal, preserve) {
+        selectEl.innerHTML = '<option value="">-- All --</option>';
+        items.forEach(item => {
+            let opt = document.createElement('option');
+            opt.value = item;
+            opt.innerText = item;
+            selectEl.appendChild(opt);
+        });
+        if (preserve && items.includes(currentVal)) {
+            selectEl.value = currentVal;
+        }
+    }
+
+    function fillProductSelect(selectEl, items, currentVal, preserve) {
+        selectEl.innerHTML = '<option value="">-- All --</option>';
+        items.forEach(code => {
+            let opt = document.createElement('option');
+            opt.value = code;
+            
+            let descriptiveName = globalMatrixData.productNamesMap[code];
+            if (descriptiveName) {
+                opt.innerText = `${code} - ${descriptiveName}`;
+            } else {
+                opt.innerText = code;
+            }
+            
+            selectEl.appendChild(opt);
+        });
+        if (preserve && items.includes(currentVal)) {
+            selectEl.value = currentVal;
+        }
+    }
+
+    window.onFilterChange = function() {
+        if (globalMatrixData.rows.length === 0) return;
+        updateDropdowns(true);
+        evaluateConfiguration();
+    }
+
+    window.resetFilters = function() {
+        appSelect.value = "";
+        driveTypeSelect.value = "";
+        productSelect.value = "";
+        if (globalMatrixData.rows.length > 0) {
+            updateDropdowns(false);
+            evaluateConfiguration();
+        }
+    }
+
+    function getActiveRowData() {
+        const selectedApp = appSelect.value;
+        const selectedDrive = driveTypeSelect.value;
+        const selectedProd = productSelect.value;
+        const userH = parseInt(heightInput.value);
+
+        let matchingRows = globalMatrixData.rows.filter(r => {
+            if (selectedApp && r.application !== selectedApp) return false;
+            if (selectedDrive && r.driveType !== selectedDrive) return false;
+            if (selectedProd && r.product !== selectedProd) return false;
+            return true;
+        });
+
+        if (matchingRows.length === 0) return null;
+
+        matchingRows.sort((a, b) => Math.abs(a.height - userH) - Math.abs(b.height - userH));
+        return matchingRows[0];
+    }
+
+    function renderVisualGrid() {
+        if (globalMatrixData.rows.length === 0) {
+            gridContainer.innerHTML = '<div style="padding: 20px; text-align:center;">Spreadsheet not loaded yet.</div>';
+            return;
+        }
+
+        const selectedApp = appSelect.value;
+        const selectedDrive = driveTypeSelect.value;
+        const selectedProd = productSelect.value;
+
+        const availableRows = globalMatrixData.rows.filter(r => {
+            if (selectedApp && r.application !== selectedApp) return false;
+            if (selectedDrive && r.driveType !== selectedDrive) return false;
+            if (selectedProd && r.product !== selectedProd) return false;
+            return true;
+        });
+        
+        let availableHeights = [...new Set(availableRows.map(r => r.height))].sort((a,b) => a - b);
+
+        let firstValidWidthIdx = globalMatrixData.widths.length;
+        for (let wIdx = 0; wIdx < globalMatrixData.widths.length; wIdx++) {
+            let hasAnyPrice = availableRows.some(r => r.prices[wIdx] !== null);
+            if (hasAnyPrice) {
+                firstValidWidthIdx = wIdx;
+                break;
+            }
+        }
+        
+        const activeWidths = globalMatrixData.widths.slice(firstValidWidthIdx);
+
+        if (activeWidths.length === 0 || availableHeights.length === 0) {
+            gridContainer.innerHTML = '<div style="padding: 20px; text-align:center; color: var(--text-muted);">No pricing data matches the active filter selection.</div>';
+            return;
+        }
+
+        let html = '<table class="matrix-visual"><thead><tr><th>H \\ W</th>';
+        activeWidths.forEach(w => { html += `<th>${w}</th>`; });
+        html += '</tr></thead><tbody>';
+
+        availableHeights.forEach(h => {
+            let rowObj = availableRows.find(r => r.height === h);
+            html += `<tr><th class="row-header">${h}</th>`;
+            
+            activeWidths.forEach(w => {
+                const originalWIdx = globalMatrixData.widths.indexOf(w);
+                const hasPrice = rowObj && rowObj.prices[originalWIdx] !== null;
+                const cssClass = hasPrice ? 'cell-available' : 'cell-unavailable';
+                html += `<td class="${cssClass}" data-w="${w}" data-h="${h}" onclick="selectCellFromChart(${w}, ${h})"></td>`;
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        gridContainer.innerHTML = html;
+    }
+
+    window.openSizeChart = function() {
+        document.getElementById('sizeChartModal').classList.add('active');
+        renderVisualGrid();
+        highlightCurrentCellInChart();
+    }
+
+    window.closeSizeChart = function() {
+        document.getElementById('sizeChartModal').classList.remove('active');
+    }
+
+    window.selectCellFromChart = function(w, h) {
+        widthInput.value = w;
+        heightInput.value = h;
+        closeSizeChart();
+        evaluateConfiguration();
+    }
+
+    function highlightCurrentCellInChart() {
+        document.querySelectorAll('.cell-target').forEach(el => el.classList.remove('cell-target'));
+        const userW = parseInt(widthInput.value);
+        const userH = parseInt(heightInput.value);
+        
+        const targetCell = document.querySelector(`td[data-w="${userW}"][data-h="${userH}"]`);
+        if (targetCell) targetCell.classList.add('cell-target');
+    }
+
+    function evaluateConfiguration() {
+        if (globalMatrixData.rows.length === 0) return;
+
+        const userW = parseInt(widthInput.value);
+        const userH = parseInt(heightInput.value);
+
+        if (isNaN(userW) || isNaN(userH)) {
+            statusCard.style.borderColor = varColor('border');
+            statusTitle.innerText = "Enter dimensions";
+            statusMsg.innerText = "Please specify numeric width and height.";
+            priceDisplay.innerText = "£0.00";
+            return;
+        }
+
+        const widthIndex = globalMatrixData.widths.indexOf(userW);
+        if (widthIndex === -1) {
+            statusCard.style.borderColor = '#ef4444';
+            statusTitle.innerText = "Width Increment Not in Matrix";
+            statusMsg.innerText = "The entered width does not match available matrix columns.";
+            priceDisplay.innerText = "N/A";
+            return;
+        }
+
+        const activeRow = getActiveRowData();
+        if (!activeRow) {
+            statusCard.style.borderColor = '#ef4444';
+            statusTitle.innerText = "No Matching Configuration Found";
+            statusMsg.innerText = "Please select specific options or reset filters to match available rows.";
+            priceDisplay.innerText = "N/A";
+            return;
+        }
+
+        const price = activeRow.prices[widthIndex];
+
+        if (price !== null && price !== undefined) {
+            statusCard.style.borderColor = '#10b981';
+            statusTitle.innerText = "Configuration Available";
+            statusMsg.innerText = `Valid size found at height row ${activeRow.height}mm.`;
+            priceDisplay.innerText = `£${price.toFixed(2)}`;
+        } else {
+            statusCard.style.borderColor = '#ef4444';
+            statusTitle.innerText = "Size Unavailable (Value ≤ 50 or Empty)";
+            statusMsg.innerText = `This specific width/height intersection is marked unavailable or is blank. Click 'Size Chart' to check safe alternatives.`;
+            priceDisplay.innerText = "Unavailable";
+        }
+
+        highlightCurrentCellInChart();
+    }
+
+    function varColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue('--'+name);
+    }
+
+    widthInput.addEventListener('input', evaluateConfiguration);
+    heightInput.addEventListener('input', evaluateConfiguration);
+
+    // Trigger auto-load on start
+    loadSpreadsheetFromGitHub();
+</script>
+
+</body>
+</html>
