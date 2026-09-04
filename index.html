@@ -424,14 +424,20 @@
     const uploadFallback = document.getElementById('uploadFallback');
     const excelFileInput = document.getElementById('excelFileInput');
 
-    async function loadSpreadsheetFromGitHub() {
-        // REPLACE placeholders below with your exact GitHub repository path and file name
-        const rawGithubUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/price%20list.xlsx";
-        // Wrapped with a standard public CORS bridge to bypass browser fetch blocks
-        const corsProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawGithubUrl);
 
+
+async function loadSpreadsheetFromGitHub() {
+        // Replace with your actual GitHub username and repository name
+        const rawGithubUrl = "https://raw.githubusercontent.com/rob-hyrons/SWS-size-charts/blob/main/price%20list.xlsx";
+		
+
+		
+		
+        
+        // Optional: GitHub raw URLs already support CORS natively, so you can fetch directly 
+        // without the proxy wrapper if you prefer a faster connection:
         try {
-            const response = await fetch(corsProxyUrl);
+            const response = await fetch(rawGithubUrl);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
             const arrayBuffer = await response.arrayBuffer();
@@ -439,11 +445,23 @@
             const workbook = XLSX.read(data, { type: 'array' });
             processWorkbook(workbook);
         } catch (error) {
-            console.warn("Proxy/Direct fetch failed. Exposing manual upload bar:", error);
-            uploadFallback.style.display = "flex"; 
-            statusTitle.innerText = "Auto-Load Blocked by Browser CORS";
-            statusMsg.innerText = "Please use the manual override bar above to select your spreadsheet once.";
-            selectedProductTitle.innerText = "Awaiting Spreadsheet Upload";
+            console.warn("Direct fetch failed, trying proxy fallback:", error);
+            
+            // Fallback to proxy if direct fails
+            const corsProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawGithubUrl);
+            try {
+                const proxyResponse = await fetch(corsProxyUrl);
+                if (!proxyResponse.ok) throw new Error(`Proxy error! status: ${proxyResponse.status}`);
+                const proxyBuffer = await proxyResponse.arrayBuffer();
+                const workbook = XLSX.read(new Uint8Array(proxyBuffer), { type: 'array' });
+                processWorkbook(workbook);
+            } catch (proxyError) {
+                console.warn("Proxy/Direct fetch failed. Exposing manual upload bar:", proxyError);
+                uploadFallback.style.display = "flex"; 
+                statusTitle.innerText = "Auto-Load Blocked / File Not Found";
+                statusMsg.innerText = "Please check your repository URL or use the manual override bar above.";
+                selectedProductTitle.innerText = "Awaiting Spreadsheet Upload";
+            }
         }
     }
 
