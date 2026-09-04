@@ -34,7 +34,6 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
 
-        /* Fallback upload bar if GitHub blocks direct fetching */
         .upload-fallback {
             background: #f1f5f9;
             border: 1px dashed var(--border-color);
@@ -303,9 +302,9 @@
 
 <div class="container">
     
-    <!-- Optional fallback upload bar if browser security or private repo blocks auto-fetch -->
+    <!-- Fallback Bar -->
     <div class="upload-fallback" id="uploadFallback" style="display: none;">
-        <span><strong>Manual Override:</strong> Auto-load failed. Select file manually:</span>
+        <span><strong>Browser Security Blocked Auto-Fetch:</strong> Select your file manually below:</span>
         <input type="file" id="excelFileInput" accept=".xlsx, .xls">
     </div>
 
@@ -313,7 +312,7 @@
     <div class="product-header">
         <div class="product-title-group">
             <h2>Product Specification</h2>
-            <h1 id="selectedProductTitle">Loading spreadsheet...</h1>
+            <h1 id="selectedProductTitle">Loading spreadsheet from repository...</h1>
         </div>
     </div>
 
@@ -425,13 +424,14 @@
     const uploadFallback = document.getElementById('uploadFallback');
     const excelFileInput = document.getElementById('excelFileInput');
 
-    // 1. Auto-Load from GitHub with URL-encoded space (%20)
     async function loadSpreadsheetFromGitHub() {
-        // Replace USERNAME and REPO with your specific GitHub repo details
-        const githubExcelUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/price%20list.xlsx";
+        // REPLACE placeholders below with your exact GitHub repository path and file name
+        const rawGithubUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/price%20list.xlsx";
+        // Wrapped with a standard public CORS bridge to bypass browser fetch blocks
+        const corsProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawGithubUrl);
 
         try {
-            const response = await fetch(githubExcelUrl);
+            const response = await fetch(corsProxyUrl);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
             const arrayBuffer = await response.arrayBuffer();
@@ -439,15 +439,14 @@
             const workbook = XLSX.read(data, { type: 'array' });
             processWorkbook(workbook);
         } catch (error) {
-            console.warn("Auto-fetch failed. Exposing manual upload bar:", error);
-            uploadFallback.style.display = "flex"; // Show manual upload fallback if fetch is blocked
-            statusTitle.innerText = "Auto-Load Blocked";
-            statusMsg.innerText = "Please use the manual override bar above to upload your spreadsheet.";
+            console.warn("Proxy/Direct fetch failed. Exposing manual upload bar:", error);
+            uploadFallback.style.display = "flex"; 
+            statusTitle.innerText = "Auto-Load Blocked by Browser CORS";
+            statusMsg.innerText = "Please use the manual override bar above to select your spreadsheet once.";
             selectedProductTitle.innerText = "Awaiting Spreadsheet Upload";
         }
     }
 
-    // Manual fallback handler
     excelFileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -458,7 +457,7 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 processWorkbook(workbook);
-                uploadFallback.style.display = "none"; // Hide after successful load
+                uploadFallback.style.display = "none";
             } catch (err) {
                 alert("Error reading Excel file: " + err.message);
             }
@@ -477,8 +476,8 @@
             const nameSheet = workbook.Sheets[nameSheetName];
             const nameJson = XLSX.utils.sheet_to_json(nameSheet, { header: 1 });
             
-            let codeColIdx = 4; // Column E
-            let nameColIdx = 6; // Column G
+            let codeColIdx = 4; 
+            let nameColIdx = 6; 
 
             if (nameJson.length > 0) {
                 const headers = nameJson[0].map(h => h ? String(h).trim().toLowerCase() : '');
@@ -524,10 +523,10 @@
             const cols = priceJson[r];
             if (!cols || cols.length === 0) continue;
 
-            const product = cols[2] ? String(cols[2]).trim() : '';     // Column C
-            const app = cols[3] ? String(cols[3]).trim() : '';         // Column D
-            const driveType = cols[4] ? String(cols[4]).trim() : '';   // Column E
-            const height = cols[5] ? parseInt(cols[5]) : NaN;          // Column F
+            const product = cols[2] ? String(cols[2]).trim() : '';     
+            const app = cols[3] ? String(cols[3]).trim() : '';         
+            const driveType = cols[4] ? String(cols[4]).trim() : '';   
+            const height = cols[5] ? parseInt(cols[5]) : NaN;          
 
             if (!product || isNaN(height)) continue;
 
@@ -791,7 +790,7 @@
     widthInput.addEventListener('input', evaluateConfiguration);
     heightInput.addEventListener('input', evaluateConfiguration);
 
-    // Run auto-fetch on boot
+    // Auto-fetch on boot
     loadSpreadsheetFromGitHub();
 </script>
 
