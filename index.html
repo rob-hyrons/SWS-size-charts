@@ -34,6 +34,19 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
 
+        /* Fallback upload bar if GitHub blocks direct fetching */
+        .upload-fallback {
+            background: #f1f5f9;
+            border: 1px dashed var(--border-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
         .product-header {
             display: flex;
             justify-content: space-between;
@@ -103,7 +116,6 @@
         }
         .btn-reset-filters:hover { background: #e2e8f0; color: var(--text-main); }
 
-        /* Form Layout: Filters first row, Dimensions second row */
         .config-grid-section {
             background: #f8fafc;
             padding: 20px;
@@ -157,7 +169,7 @@
             border: 1px solid var(--border-color);
             border-left: none;
             padding: 8px 10px;
-            font-size: 0.8rem;
+            font-size: 0.80rem;
             color: var(--text-muted);
             border-radius: 0 4px 4px 0;
             box-sizing: border-box;
@@ -291,11 +303,17 @@
 
 <div class="container">
     
+    <!-- Optional fallback upload bar if browser security or private repo blocks auto-fetch -->
+    <div class="upload-fallback" id="uploadFallback" style="display: none;">
+        <span><strong>Manual Override:</strong> Auto-load failed. Select file manually:</span>
+        <input type="file" id="excelFileInput" accept=".xlsx, .xls">
+    </div>
+
     <!-- Product Header Bar -->
     <div class="product-header">
         <div class="product-title-group">
             <h2>Product Specification</h2>
-            <h1 id="selectedProductTitle">Loading spreadsheet from GitHub...</h1>
+            <h1 id="selectedProductTitle">Loading spreadsheet...</h1>
         </div>
     </div>
 
@@ -307,9 +325,8 @@
         </div>
     </div>
 
-    <!-- Structured Form Layout -->
+    <!-- Form Section -->
     <div class="config-grid-section">
-        <!-- Row 1: Filters (Application, Drive Rating, Product) -->
         <div class="filters-row">
             <div class="input-group">
                 <label for="appSelect">Application (Col D)</label>
@@ -333,7 +350,6 @@
             </div>
         </div>
 
-        <!-- Row 2: Width and Height Inputs placed underneath -->
         <div class="dimensions-row">
             <div class="input-group">
                 <label for="widthInput">Width (mm)</label>
@@ -406,11 +422,13 @@
     const priceDisplay = document.getElementById('priceDisplay');
     const gridContainer = document.getElementById('gridContainer');
     const selectedProductTitle = document.getElementById('selectedProductTitle');
+    const uploadFallback = document.getElementById('uploadFallback');
+    const excelFileInput = document.getElementById('excelFileInput');
 
-    // Automatically Fetch Excel Spreadsheet from GitHub Repository URL
+    // 1. Auto-Load from GitHub with URL-encoded space (%20)
     async function loadSpreadsheetFromGitHub() {
-        // IMPORTANT: Replace with your raw GitHub repository path link to your .xlsx file
-        const githubExcelUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/prices.xlsx";
+        // Replace USERNAME and REPO with your specific GitHub repo details
+        const githubExcelUrl = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/price%20list.xlsx";
 
         try {
             const response = await fetch(githubExcelUrl);
@@ -421,12 +439,32 @@
             const workbook = XLSX.read(data, { type: 'array' });
             processWorkbook(workbook);
         } catch (error) {
-            console.error("Failed to load Excel file from GitHub:", error);
-            statusTitle.innerText = "Connection Error";
-            statusMsg.innerText = "Could not load spreadsheet file from GitHub path. Check console for details.";
-            selectedProductTitle.innerText = "Failed to load remote spreadsheet";
+            console.warn("Auto-fetch failed. Exposing manual upload bar:", error);
+            uploadFallback.style.display = "flex"; // Show manual upload fallback if fetch is blocked
+            statusTitle.innerText = "Auto-Load Blocked";
+            statusMsg.innerText = "Please use the manual override bar above to upload your spreadsheet.";
+            selectedProductTitle.innerText = "Awaiting Spreadsheet Upload";
         }
     }
+
+    // Manual fallback handler
+    excelFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                processWorkbook(workbook);
+                uploadFallback.style.display = "none"; // Hide after successful load
+            } catch (err) {
+                alert("Error reading Excel file: " + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
 
     function processWorkbook(workbook) {
         let priceSheetName = workbook.SheetNames.find(name => name.trim().toLowerCase() === 'price list');
@@ -439,7 +477,7 @@
             const nameSheet = workbook.Sheets[nameSheetName];
             const nameJson = XLSX.utils.sheet_to_json(nameSheet, { header: 1 });
             
-            let codeColIdx = 4; // Default Column E
+            let codeColIdx = 4; // Column E
             let nameColIdx = 6; // Column G
 
             if (nameJson.length > 0) {
@@ -522,7 +560,7 @@
 
         if (globalMatrixData.widths.length > 0) widthInput.value = globalMatrixData.widths[0];
         
-        selectedProductTitle.innerText = "Spreadsheet Loaded Successfully from GitHub";
+        selectedProductTitle.innerText = "Spreadsheet Loaded Successfully";
         evaluateConfiguration();
     }
 
@@ -753,7 +791,7 @@
     widthInput.addEventListener('input', evaluateConfiguration);
     heightInput.addEventListener('input', evaluateConfiguration);
 
-    // Trigger auto-load on start
+    // Run auto-fetch on boot
     loadSpreadsheetFromGitHub();
 </script>
 
